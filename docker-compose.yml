@@ -1,0 +1,42 @@
+services:
+  # PostgreSQL 数据库
+  db:
+    image: postgres:16-alpine
+    container_name: guardrail-db
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-guardrail}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-guardrail_pwd}
+      POSTGRES_DB: ${POSTGRES_DB:-guardrail}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    networks:
+      - guardrail-net
+    restart: unless-stopped
+
+  # AI 护栏网关服务（前后端一体）
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: guardrail-gateway
+    env_file:
+      - .env
+    ports:
+      - "${GATEWAY_PORT:-8000}:8000"
+    depends_on:
+      - db
+    networks:
+      - guardrail-net
+    restart: unless-stopped
+    environment:
+      # 容器内连接数据库使用 db 服务名
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-guardrail}:${POSTGRES_PASSWORD:-guardrail_pwd}@db:5432/${POSTGRES_DB:-guardrail}
+
+volumes:
+  pg_data:
+
+networks:
+  guardrail-net:
+    driver: bridge
